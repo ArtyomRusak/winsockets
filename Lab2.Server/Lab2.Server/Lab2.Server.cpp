@@ -24,55 +24,36 @@ using namespace std;
 
 char* DoLab(char* clientData){
 	char result[512];
-	if (strlen(clientData) > 2)
+	if (strlen(clientData) < 2 || strlen(clientData) == 0)
 	{
-		strcpy_s(result, "This is not a number in range from 0 to 10.");
+		strcpy_s(result, "Not enough data.");
 	}
 	else
 	{
-		if (clientData[0] != '0' && clientData[0] != '1' && clientData[0] != '2' && clientData[0] != '3' && clientData[0] != '4' && clientData[0] != '5' && clientData[0] != '6'
-			&& clientData[0] != '7' && clientData[0] != '8' && clientData[0] != '9')
+		int startIndex = -1;
+		int endIndex = -1;
+		bool firstStep = true;
+		for (int i = 0; i < strlen(clientData); i++)
 		{
-			strcpy_s(result, "This is not a number in range from 0 to 10.");
+			if (clientData[i] == '\"' && firstStep)
+			{
+				startIndex = i + 1;
+				firstStep = false;
+			}
+			else if (clientData[i] == '\"')
+			{
+				endIndex = i;
+				break;
+			}
+		}
+
+		if (startIndex == -1 || endIndex == -1)
+		{
+			strcpy_s(result, "Not enough data");
 		}
 		else
 		{
-			int number = atoi(clientData);
-			switch (number){
-			case 0:
-				strcpy_s(result, "zero");
-				break;
-			case 1:
-				strcpy_s(result, "one");
-				break;
-			case 2:
-				strcpy_s(result, "two");
-				break;
-			case 3:
-				strcpy_s(result, "three");
-				break;
-			case 4:
-				strcpy_s(result, "four");
-				break;
-			case 5:
-				strcpy_s(result, "five");
-				break;
-			case 6:
-				strcpy_s(result, "six");
-				break;
-			case 7:
-				strcpy_s(result, "seven");
-				break;
-			case 8:
-				strcpy_s(result, "eight");
-				break;
-			case 9:
-				strcpy_s(result, "nine");
-				break;
-			case 10:
-				strcpy_s(result, "ten");
-				break;
-			}
+			strncpy_s(result, clientData + startIndex, endIndex - startIndex);
 		}
 	}
 	return result;
@@ -84,7 +65,6 @@ int main(void)
 	int iResult;
 
 	SOCKET ListenSocket = INVALID_SOCKET;
-	SOCKET ClientSocket = INVALID_SOCKET;
 
 	int iSendResult;
 	char recvbuf[DEFAULT_BUFLEN];
@@ -125,7 +105,7 @@ int main(void)
 	char* serverResult;
 	// Receive until the peer shuts down the connection
 	while (true){
-		iResult = recvfrom(ClientSocket, recvbuf, recvbuflen, 0, (struct sockaddr*) &ad, &l);
+		iResult = recvfrom(ListenSocket, recvbuf, recvbuflen, 0, (struct sockaddr*) &ad, &l);
 		if (iResult > 0) {
 			dataFromClient = new char[iResult + 1];
 			strncpy_s(dataFromClient, (iResult + 1) * sizeof(char), recvbuf, iResult);
@@ -134,13 +114,13 @@ int main(void)
 			serverResult = DoLab(dataFromClient);
 
 			// Echo the buffer back to the sender
-			iSendResult = sendto(ClientSocket, serverResult, strlen(serverResult), 0, (struct sockaddr*) &ad, l);
+			iSendResult = sendto(ListenSocket, serverResult, strlen(serverResult), 0, (struct sockaddr*) &ad, l);
 
 			cout << "Send to client information..." << endl;
 
 			if (iSendResult == SOCKET_ERROR) {
 				printf("send failed with error: %d\n", WSAGetLastError());
-				closesocket(ClientSocket);
+				closesocket(ListenSocket);
 				WSACleanup();
 				return 1;
 			}
@@ -156,7 +136,7 @@ int main(void)
 		}
 		else  {
 			printf("recv failed with error: %d\n", WSAGetLastError());
-			closesocket(ClientSocket);
+			closesocket(ListenSocket);
 			WSACleanup();
 			return 1;
 		}
@@ -166,7 +146,7 @@ int main(void)
 	delete dataFromClient;
 
 	// cleanup
-	closesocket(ClientSocket);
+	closesocket(ListenSocket);
 	WSACleanup();
 
 	system("pause");

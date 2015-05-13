@@ -42,41 +42,7 @@ int __cdecl main(int argc, char **argv)
 		return 1;
 	}
 
-	ZeroMemory(&hints, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
-
-	// Resolve the server address and port
-	iResult = getaddrinfo(NULL, DEFAULT_PORT, &hints, &result);
-	if (iResult != 0) {
-		printf("getaddrinfo failed with error: %d\n", iResult);
-		WSACleanup();
-		return 1;
-	}
-
-	// Attempt to connect to an address until one succeeds
-	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
-
-		// Create a SOCKET for connecting to server
-		ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-		if (ConnectSocket == INVALID_SOCKET) {
-			printf("socket failed with error: %ld\n", WSAGetLastError());
-			WSACleanup();
-			return 1;
-		}
-
-		// Connect to server.
-		iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
-		if (iResult == SOCKET_ERROR) {
-			closesocket(ConnectSocket);
-			ConnectSocket = INVALID_SOCKET;
-			continue;
-		}
-		break;
-	}
-
-	freeaddrinfo(result);
+	ConnectSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
 	if (ConnectSocket == INVALID_SOCKET) {
 		printf("Unable to connect to server!\n");
@@ -84,15 +50,24 @@ int __cdecl main(int argc, char **argv)
 		return 1;
 	}
 
+	sockaddr_in add;
+	add.sin_family = AF_INET;
+	add.sin_port = htons(1024);
+	add.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+	int t = sizeof(add);
+
+	
+
 	// Receive until the peer closes the connection
 	do {
-		cout << "Type number from 0 to 10: ";
-		char *sendData = new char[3];
-		cin.getline(sendData, 3 * sizeof(char));
+		cout << "Type string: ";
+		char *sendData = new char[100];
+		cin.getline(sendData, 100 * sizeof(char));
 
 		cout << "Sending data..." << endl;
 		// Send an initial buffer
-		iResult = send(ConnectSocket, sendData, (int)strlen(sendData), 0);
+		iResult = sendto(ConnectSocket, sendData, (int)strlen(sendData), 0, (struct sockaddr*)&add, t);
 
 		delete sendData;
 
@@ -105,7 +80,7 @@ int __cdecl main(int argc, char **argv)
 
 		/*printf("Bytes Sent: %ld\n", iResult);*/
 
-		iResult = recv(ConnectSocket, recvbuf, recvbuflen, 0);
+		iResult = recvfrom(ConnectSocket, recvbuf, recvbuflen, 0, (struct sockaddr*)&add, &t);
 		if (iResult > 0){
 			char *serverData = new char[iResult + 1];
 			strncpy_s(serverData, (iResult + 1) * sizeof(char), recvbuf, iResult);
@@ -121,16 +96,6 @@ int __cdecl main(int argc, char **argv)
 
 	} while (iResult > 0);
 
-	// shutdown the connection since no more data will be sent
-	iResult = shutdown(ConnectSocket, SD_SEND);
-	if (iResult == SOCKET_ERROR) {
-		printf("shutdown failed with error: %d\n", WSAGetLastError());
-		closesocket(ConnectSocket);
-		WSACleanup();
-		return 1;
-	}
-
-	// cleanup
 	closesocket(ConnectSocket);
 	WSACleanup();
 
